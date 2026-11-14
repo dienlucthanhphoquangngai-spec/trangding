@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radar nến Nhật – Phân tích mô hình nến BTC/Binance</title>
+<style>
+:root{--bg:#eef1ee;--panel:#fff;--ink:#16221e;--mute:#62706b;--line:#d5dcd7;--up:#0f9d74;--dn:#d6355b;--ne:#8a8f3c;--acc:#16221e}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1815;--panel:#16221e;--ink:#e6efe9;--mute:#8da39a;--line:#2a3a34;--up:#2fd4a0;--dn:#ff5d82;--ne:#c9cf63;--acc:#e6efe9}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 "Be Vietnam Pro","Segoe UI",system-ui,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:16px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:14px}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+h1 small{display:block;font-size:13px;font-weight:400;color:var(--mute)}
+.price{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums}
+select,button{font:inherit;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:7px 12px;cursor:pointer}
+button:focus-visible,select:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.tfs{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.tfs button[aria-pressed=true]{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+h2{font-size:16px;margin:0 0 10px}
+canvas{width:100%;height:380px;display:block}
+#hint{font-size:13px;color:var(--mute);min-height:20px;margin-top:6px;font-variant-numeric:tabular-nums}
+.verdict{border-left:6px solid var(--ne);padding-left:12px}
+.verdict.up{border-color:var(--up)}.verdict.dn{border-color:var(--dn)}
+.verdict b{font-size:22px;display:block}
+.bar{height:8px;background:var(--line);border-radius:4px;margin:8px 0;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--ne)}
+.up .bar i{background:var(--up)}.dn .bar i{background:var(--dn)}
+.sig{padding:12px 0;border-top:1px solid var(--line)}
+.sig:first-child{border-top:0}
+.tag{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;font-weight:600;color:#fff;margin-right:6px}
+.tag.up{background:var(--up)}.tag.dn{background:var(--dn)}.tag.ne{background:var(--ne)}
+.sig p{margin:4px 0 0;color:var(--mute)}
+.sig time{font-size:12px;color:var(--mute);float:right}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-top:1px solid var(--line)}
+th{color:var(--mute);font-weight:500;border-top:0}
+tr[data-tf]{cursor:pointer}tr[data-tf]:hover{background:var(--bg)}
+.c-up{color:var(--up);font-weight:600}.c-dn{color:var(--dn);font-weight:600}.c-ne{color:var(--ne);font-weight:600}
+.scroll{overflow-x:auto}
+.note{font-size:12.5px;color:var(--mute);margin-top:14px}
+#err{display:none;background:var(--dn);color:#fff;padding:10px 14px;border-radius:8px;margin-bottom:12px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:10px}
+input{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 10px;width:130px}
+.pri{background:var(--acc);color:var(--bg);border-color:var(--acc);font-weight:600}
+.pri.up{background:var(--up);border-color:var(--up);color:#fff}.sell{background:var(--dn);border-color:var(--dn);color:#fff;font-weight:600}
+pre{background:var(--bg);padding:10px;border-radius:8px;overflow:auto;font-size:12px}.mute{color:var(--mute)}h3{font-size:15px;margin:14px 0 6px}
+li{margin-bottom:6px}a{color:var(--up)}details{margin-top:14px}summary{cursor:pointer;font-weight:600}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <h1>Radar nến Nhật<small>Quét mô hình nến trên dữ liệu Binance (cùng nguồn giá BINANCE trên TradingView)</small></h1>
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+    <select id="sym" aria-label="Chọn cặp coin">
+      <option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option><option>SOLUSDT</option><option>XRPUSDT</option><option>DOGEUSDT</option>
+    </select>
+    <span class="price" id="price">–</span>
+    <button id="tv" title="Mở biểu đồ này trên TradingView">Mở TradingView</button>
+  </div>
+</header>
+<div id="err"></div>
+<div class="tfs" id="tfs" role="group" aria-label="Khung thời gian"></div>
+
+<div class="grid">
+  <section class="box">
+    <h2 id="ctitle">Biểu đồ nến</h2>
+    <canvas id="cv"></canvas>
+    <div id="hint">Rê chuột lên cây nến để xem chi tiết. Mũi tên xanh/đỏ là nến có mô hình.</div>
+  </section>
+  <aside class="box">
+    <h2>Nhận định khung <span id="vtf"></span></h2>
+    <div id="verdict" class="verdict"><b>Đang tải…</b></div>
+    <p id="vwhy" style="color:var(--mute);margin:8px 0 0"></p>
+  </aside>
+</div>
+
+<section class="box" style="margin-top:14px">
+  <div class="row"><h2 style="margin:0">Dự báo 1 ngày tới từ mô hình nến và tin tức</h2><button id="fbtn" class="pri">Dự báo 24 giờ tới</button></div>
+  <div id="fbox" class="mute">Bấm nút để tổng hợp mô hình nến ở 9 khung thời gian, tin tức mới và chỉ số Sợ hãi/Tham lam.</div>
+</section>
+
+<section class="box" style="margin-top:14px">
+  <h2>Mua / bán và lưu vào Google Sheet</h2>
+  <div class="row" style="justify-content:flex-start">
+    <label>Giá mua <input id="bp" type="number" step="any"></label>
+    <button id="useP">Lấy giá hiện tại</button>
+    <label>Số tiền (USDT) <input id="ba" type="number" step="any" value="100"></label>
+    <button id="buy" class="pri up">MUA</button>
+  </div>
+  <h3>Lệnh đang mở</h3><div class="scroll" id="pos"></div>
+  <h3>Lệnh đã bán gần đây</h3><div class="scroll" id="hist"></div>
+  <p id="sync" class="note">Chưa kết nối Google Sheet: dữ liệu mới chỉ lưu tạm trên máy này.</p>
+  <details><summary>Kết nối Google Sheet (làm một lần)</summary>
+    <ol>
+      <li>Mở Google Sheet của bạn, chọn <b>Tiện ích mở rộng</b> rồi <b>Apps Script</b>.</li>
+      <li>Xóa code cũ, dán đoạn code bên dưới rồi lưu.</li>
+      <li>Chọn <b>Triển khai</b> rồi <b>Ứng dụng web</b>. Thực thi với quyền “Tôi”, quyền truy cập “Bất kỳ ai”. Cấp quyền khi Google hỏi.</li>
+      <li>Sao chép URL kết thúc bằng <code>/exec</code>, dán vào ô dưới và bấm Lưu và đồng bộ.</li>
+    </ol>
+<pre id="gs">const SS='1hFE4Z73EiCfAIQc2c09WZkaU6LrB_dg0UvG0X3Lk3NE';
+const H=['id','thoiGian','coin','loai','gia','soTienUSDT','soLuong','idMua','loiLo','loiLoPct','ketQua','duBao1Ngay','duBaoTheoKhung'];
+function sh(){const s=SpreadsheetApp.openById(SS);let t=s.getSheetByName('GiaoDich');if(!t){t=s.insertSheet('GiaoDich');t.appendRow(H)}return t}
+function doPost(e){const r=JSON.parse(e.postData.contents);sh().appendRow(H.map(k=>r[k]??''));return ContentService.createTextOutput('ok')}
+function doGet(){const v=sh().getDataRange().getValues(),h=v.shift();
+  return ContentService.createTextOutput(JSON.stringify(v.map(r=>Object.fromEntries(h.map((k,i)=>[k,r[i]]))))).setMimeType(ContentService.MimeType.JSON)}</pre>
+    <div class="row" style="justify-content:flex-start"><input id="url" style="width:min(100%,460px)" placeholder="https://script.google.com/macros/s/.../exec"><button id="saveUrl" class="pri">Lưu và đồng bộ</button></div>
+  </details>
+</section>
+
+<section class="box" style="margin-top:14px">
+  <h2>Thống kê: dự báo nào đúng nhiều nhất</h2>
+  <div id="st"></div>
+</section>
+
+<section class="box" style="margin-top:14px">
+  <h2>Tín hiệu nến gần đây và lý do</h2>
+  <div id="sigs"></div>
+</section>
+
+<section class="box" style="margin-top:14px">
+  <h2>Tổng hợp đa khung thời gian</h2>
+  <div class="scroll"><table>
+    <thead><tr><th>Khung</th><th>Xu hướng</th><th>Mô hình nến mới nhất</th><th>Nhận định</th></tr></thead>
+    <tbody id="mtf"></tbody>
+  </table></div>
+  <p class="note">Bấm vào một dòng để xem chi tiết khung đó. Dữ liệu tự cập nhật mỗi 30 giây.</p>
+</section>
+
+<p class="note">Trang này chỉ nhận diện mô hình nến theo quy tắc kỹ thuật và không phải lời khuyên đầu tư. Mô hình nến có thể sai, nhất là khi thị trường biến động mạnh. Luôn đặt cắt lỗ và quản lý vốn. TradingView không có API công khai để lấy dữ liệu, nên trang lấy giá từ API công khai của Binance, cùng nguồn với biểu đồ BINANCE trên TradingView.</p>
+</div>
+
+<script>
+const TFS=['5m','15m','30m','1h','4h','1d','1w','1M','3M'];
+const LBL={'5m':'5 phút','15m':'15 phút','30m':'30 phút','1h':'1 giờ','4h':'4 giờ','1d':'1 ngày','1w':'1 tuần','1M':'1 tháng','3M':'3 tháng'};
+const HOSTS=['https://api.binance.com','https://data-api.binance.vision'];
+const $=id=>document.getElementById(id);
+let tf='15m',data={},hits=[];
+
+/* ---------- Giải thích vì sao mô hình báo tăng/giảm ---------- */
+const WHY={
+'Búa (Hammer)':'Sau nhịp giảm, giá bị đẩy xuống sâu nhưng phe mua kéo ngược lại và đóng cửa gần đỉnh, để lại bóng dưới dài. Điều này cho thấy lực bán đang cạn và phe mua bắt đầu chiếm lại quyền kiểm soát.',
+'Người treo cổ (Hanging Man)':'Hình dạng giống cây búa nhưng xuất hiện sau nhịp tăng. Phe bán đã dám đẩy giá xuống sâu trong phiên, dù phe mua kéo lại được. Đây là dấu hiệu lực mua yếu dần và có thể đảo chiều giảm.',
+'Sao băng (Shooting Star)':'Sau nhịp tăng, giá bị kéo lên cao rồi bị bán mạnh quay xuống, để lại bóng trên dài. Phe mua không giữ được đỉnh nên nguy cơ đảo chiều giảm.',
+'Búa ngược (Inverted Hammer)':'Sau nhịp giảm, phe mua thử đẩy giá lên cao dù bị bán lại. Nó cho thấy lực bán bắt đầu suy yếu, nhưng cần cây nến xanh kế tiếp xác nhận.',
+'Nhấn chìm tăng (Bullish Engulfing)':'Thân nến xanh bao trọn thân nến đỏ trước đó, nghĩa là phe mua đảo ngược hoàn toàn lực bán của phiên trước. Đây là một trong những tín hiệu đảo chiều tăng đáng tin hơn khi xuất hiện cuối xu hướng giảm.',
+'Nhấn chìm giảm (Bearish Engulfing)':'Thân nến đỏ bao trọn thân nến xanh trước đó, nghĩa là phe bán lấn át hoàn toàn phe mua. Khi xuất hiện cuối nhịp tăng, nó báo hiệu đảo chiều giảm.',
+'Xuyên thấu (Piercing Line)':'Nến xanh mở cửa thấp hơn nến đỏ trước nhưng đóng cửa vượt quá nửa thân nến đỏ. Phe mua đã giành lại phần lớn vùng giá bị mất, báo khả năng hồi tăng.',
+'Mây đen che phủ (Dark Cloud Cover)':'Nến đỏ mở cửa cao hơn đỉnh nến xanh trước nhưng đóng cửa sâu qua nửa thân nến xanh. Phe bán đã dập tắt đà tăng nên có nguy cơ đảo chiều giảm.',
+'Harami tăng':'Nến xanh nhỏ nằm gọn trong thân nến đỏ lớn trước đó. Đà giảm bị chững lại, phe bán mất động lực, nhưng cần nến xác nhận.',
+'Harami giảm':'Nến đỏ nhỏ nằm gọn trong thân nến xanh lớn trước đó. Đà tăng chững lại và phe mua lưỡng lự, nên có thể sắp điều chỉnh giảm.',
+'Sao mai (Morning Star)':'Ba nến gồm nến đỏ dài, một nến thân nhỏ do dự, rồi nến xanh đóng sâu vào thân nến đỏ. Phe bán kiệt sức, phe mua tiếp quản, nên đây là mô hình đảo chiều tăng mạnh.',
+'Sao hôm (Evening Star)':'Ba nến gồm nến xanh dài, một nến thân nhỏ do dự, rồi nến đỏ đóng sâu vào thân nến xanh. Phe mua kiệt sức và phe bán tiếp quản, nên đây là mô hình đảo chiều giảm mạnh.',
+'Ba chiến binh trắng':'Ba nến xanh liên tiếp, mỗi nến đóng cao hơn nến trước. Lực mua liên tục và đều đặn nên xu hướng tăng đang được củng cố.',
+'Ba con quạ đen':'Ba nến đỏ liên tiếp, mỗi nến đóng thấp hơn nến trước. Lực bán liên tục và đều đặn nên xu hướng giảm đang được củng cố.',
+'Marubozu tăng':'Nến xanh gần như không có bóng, giá mở ở đáy và đóng ở đỉnh. Phe mua kiểm soát hoàn toàn cả phiên, thường là dấu hiệu tiếp diễn đà tăng.',
+'Marubozu giảm':'Nến đỏ gần như không có bóng, giá mở ở đỉnh và đóng ở đáy. Phe bán kiểm soát hoàn toàn cả phiên, thường là dấu hiệu tiếp diễn đà giảm.',
+'Doji (do dự) sau nhịp tăng':'Giá mở và đóng gần bằng nhau, cho thấy phe mua và phe bán cân bằng. Sau nhịp tăng, đà mua đang yếu đi và thị trường có thể đảo chiều hoặc đi ngang.',
+'Doji (do dự) sau nhịp giảm':'Giá mở và đóng gần bằng nhau, cho thấy phe mua và phe bán cân bằng. Sau nhịp giảm, đà bán đang yếu đi và có thể xuất hiện nhịp hồi.'
+};
+
+/* ---------- Nhận diện mô hình ---------- */
+const g=c=>c.cl>c.o, r=c=>c.cl<c.o, body=c=>Math.abs(c.cl-c.o), rng=c=>c.h-c.l||1e-9,
+ upS=c=>c.h-Math.max(c.o,c.cl), loS=c=>Math.min(c.o,c.cl)-c.l;
+function trendAt(k,i){ // xu hướng của 6 nến kết thúc tại i-1
+  if(i-6<0) return 0; const ch=(k[i-1].cl-k[i-6].cl)/k[i-6].cl;
+  return ch>0.003?1:ch<-0.003?-1:0;
+}
+function detect(k,i){
+  const out=[],c=k[i],p=k[i-1],q=k[i-2]; if(!p) return out;
+  const t=trendAt(k,i), B=body(c), R=rng(c);
+  const add=(n,d,w)=>out.push({name:n,dir:d,w});
+  if(B<=R*0.1){ if(t===1) add('Doji (do dự) sau nhịp tăng',-1,1); else if(t===-1) add('Doji (do dự) sau nhịp giảm',1,1); }
+  else if(B>0 && loS(c)>=2*B && upS(c)<=B*0.5 && R>0){ if(t===-1) add('Búa (Hammer)',1,2); else if(t===1) add('Người treo cổ (Hanging Man)',-1,2); }
+  else if(B>0 && upS(c)>=2*B && loS(c)<=B*0.5){ if(t===1) add('Sao băng (Shooting Star)',-1,2); else if(t===-1) add('Búa ngược (Inverted Hammer)',1,1.5); }
+  const big=x=>body(x)>rng(x)*0.5;
+  if(r(p)&&g(c)&&c.o<=p.cl&&c.cl>=p.o&&B>body(p)&&t===-1) add('Nhấn chìm tăng (Bullish Engulfing)',1,3);
+  if(g(p)&&r(c)&&c.o>=p.cl&&c.cl<=p.o&&B>body(p)&&t===1) add('Nhấn chìm giảm (Bearish Engulfing)',-1,3);
+  if(r(p)&&big(p)&&g(c)&&c.o<p.cl&&c.cl>(p.o+p.cl)/2&&c.cl<p.o&&t===-1) add('Xuyên thấu (Piercing Line)',1,2.5);
+  if(g(p)&&big(p)&&r(c)&&c.o>p.cl&&c.cl<(p.o+p.cl)/2&&c.cl>p.o&&t===1) add('Mây đen che phủ (Dark Cloud Cover)',-1,2.5);
+  const inside=Math.max(c.o,c.cl)<=Math.max(p.o,p.cl)&&Math.min(c.o,c.cl)>=Math.min(p.o,p.cl);
+  if(big(p)&&inside&&B<body(p)*0.6){ if(r(p)&&g(c)&&t===-1) add('Harami tăng',1,1.5); if(g(p)&&r(c)&&t===1) add('Harami giảm',-1,1.5); }
+  if(q){
+    const tq=trendAt(k,i-1), small=body(p)<body(q)*0.5;
+    if(r(q)&&big(q)&&small&&g(c)&&c.cl>(q.o+q.cl)/2&&tq===-1) add('Sao mai (Morning Star)',1,3);
+    if(g(q)&&big(q)&&small&&r(c)&&c.cl<(q.o+q.cl)/2&&tq===1) add('Sao hôm (Evening Star)',-1,3);
+    if(g(q)&&g(p)&&g(c)&&p.cl>q.cl&&c.cl>p.cl&&p.o>q.o&&c.o>p.o&&p.o<q.cl&&c.o<p.cl&&big(q)&&big(p)&&big(c)) add('Ba chiến binh trắng',1,2.5);
+    if(r(q)&&r(p)&&r(c)&&p.cl<q.cl&&c.cl<p.cl&&p.o<q.o&&c.o<p.o&&p.o>q.cl&&c.o>p.cl&&big(q)&&big(p)&&big(c)) add('Ba con quạ đen',-1,2.5);
+  }
+  if(B>=R*0.9){ if(g(c)) add('Marubozu tăng',1,1.2); else add('Marubozu giảm',-1,1.2); }
+  return out;
+}
+const sma=(k,n,i)=>{n=Math.min(n,i+1);return k.slice(i-n+1,i+1).reduce((s,x)=>s+x.cl,0)/n};
+function analyze(k){
+  const hs=[]; for(let i=7;i<k.length;i++) detect(k,i).forEach(d=>hs.push({...d,i}));
+  const n=k.length-1; let score=0;
+  hs.filter(h=>h.i>=n-4).forEach(h=>{score+=h.dir*h.w*(1-(n-h.i)*0.15)});
+  const s20=sma(k,20,n),s50=sma(k,50,n); const tr=s20>s50*1.001?1:s20<s50*0.999?-1:0;
+  score+=tr*1.2;
+  const label=score>=1.5?'up':score<=-1.5?'dn':'ne';
+  return {hs,tr,score,label,s20,s50};
+}
+const txt={up:'Thiên về TĂNG',dn:'Thiên về GIẢM',ne:'Trung lập / chờ xác nhận'};
+const trTxt=t=>t>0?'Tăng (MA20 > MA50)':t<0?'Giảm (MA20 < MA50)':'Đi ngang';
+const cls=l=>l==='up'?'c-up':l==='dn'?'c-dn':'c-ne';
+
+/* ---------- Lấy dữ liệu ---------- */
+function quarter(m){const o=[];m.forEach(c=>{const d=new Date(c.t),key=d.getUTCFullYear()*4+Math.floor(d.getUTCMonth()/3),l=o[o.length-1];
+  if(l&&l.key===key){l.h=Math.max(l.h,c.h);l.l=Math.min(l.l,c.l);l.cl=c.cl;l.v+=c.v}else o.push({key,t:c.t,o:c.o,h:c.h,l:c.l,cl:c.cl,v:c.v})});return o}
+async function klines(sym,iv){
+  if(iv==='3M') return quarter(await klines(sym,'1M')); // Binance không có nến 3 tháng, nên gộp từ nến tháng
+  let last;
+  for(const h of HOSTS){
+    try{
+      const res=await fetch(`${h}/api/v3/klines?symbol=${sym}&interval=${iv}&limit=150`);
+      if(!res.ok) throw new Error('HTTP '+res.status);
+      const a=await res.json();
+      return a.map(x=>({t:x[0],o:+x[1],h:+x[2],l:+x[3],cl:+x[4],v:+x[5]}));
+    }catch(e){last=e}
+  }
+  throw last;
+}
+async function load(){
+  const sym=$('sym').value;
+  try{
+    const res=await Promise.all(TFS.map(x=>klines(sym,x)));
+    TFS.forEach((x,i)=>data[x]={k:res[i],a:analyze(res[i])});
+    $('err').style.display='none'; render();
+  }catch(e){
+    $('err').style.display='block';
+    $('err').textContent='Không tải được dữ liệu Binance ('+e.message+'). Hãy mở file này trực tiếp trên trình duyệt có kết nối mạng, và thử tắt VPN/chặn quảng cáo nếu Binance bị chặn ở khu vực của bạn.';
+  }
+}
+
+/* ---------- Hiển thị ---------- */
+const fmt=n=>n.toLocaleString('en-US',{maximumFractionDigits:n<1?5:2});
+const ftime=t=>new Date(t).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+function render(){
+  const {k,a}=data[tf], n=k.length-1;
+  $('price').textContent=fmt(k[n].cl);
+  $('ctitle').textContent=$('sym').value+' · nến '+tf;
+  $('vtf').textContent=tf;
+  const v=$('verdict'); v.className='verdict '+a.label;
+  const conf=Math.min(100,Math.round(Math.abs(a.score)/6*100));
+  v.innerHTML=`<b class="${cls(a.label)}">${txt[a.label]}</b>Xu hướng nền: ${trTxt(a.tr)}<div class="bar"><i style="width:${Math.max(conf,6)}%"></i></div><small>Độ mạnh tín hiệu: ${conf}%</small>`;
+  const recent=a.hs.filter(h=>h.i>=n-4);
+  $('vwhy').textContent=recent.length?`Có ${recent.length} mô hình trong 5 nến gần nhất. Xem giải thích bên dưới.`:'5 nến gần nhất chưa có mô hình rõ ràng, nhận định dựa chủ yếu vào xu hướng MA20/MA50. Nên chờ thêm tín hiệu.';
+  // danh sách tín hiệu
+  const list=[...a.hs].reverse().slice(0,12);
+  $('sigs').innerHTML=list.length?list.map(h=>{
+    const c=k[h.i], c2=h.dir>0?'up':h.dir<0?'dn':'ne';
+    const lab=h.dir>0?'Dự kiến TĂNG':h.dir<0?'Dự kiến GIẢM':'Trung lập';
+    return `<div class="sig"><time>${ftime(c.t)}${h.i===n?' (nến đang chạy)':''}</time><span class="tag ${c2}">${lab}</span><b>${h.name}</b><p>${WHY[h.name]||''}</p></div>`}).join('')
+    :'<p style="color:var(--mute)">Chưa phát hiện mô hình nào trong khung này.</p>';
+  // bảng đa khung
+  $('mtf').innerHTML=TFS.map(x=>{
+    const d=data[x], m=d.a.hs.length?d.a.hs[d.a.hs.length-1]:null, ago=m?d.k.length-1-m.i:0;
+    return `<tr data-tf="${x}"><td><b>${x}</b></td><td>${trTxt(d.a.tr)}</td><td>${m?m.name+' (cách '+ago+' nến)':'–'}</td><td class="${cls(d.a.label)}">${txt[d.a.label]}</td></tr>`}).join('');
+  document.querySelectorAll('tr[data-tf]').forEach(tr=>tr.onclick=()=>{tf=tr.dataset.tf;sync();window.scrollTo({top:0,behavior:'smooth'})});
+  draw();tradeUI();
+}
+
+/* ---------- Vẽ biểu đồ nến ---------- */
+let geo=null;
+function draw(){
+  const cv=$('cv'),dpr=window.devicePixelRatio||1,W=cv.clientWidth,H=cv.clientHeight;
+  cv.width=W*dpr;cv.height=H*dpr;const x=cv.getContext('2d');x.scale(dpr,dpr);
+  const cs=getComputedStyle(document.documentElement),col=n=>cs.getPropertyValue(n).trim();
+  const {k,a}=data[tf],N=Math.min(90,k.length),off=k.length-N,v=k.slice(off);
+  const hi=Math.max(...v.map(c=>c.h)),lo=Math.min(...v.map(c=>c.l)),pad=24,pr=62;
+  const Y=p=>pad+(hi-p)/(hi-lo)*(H-pad*2), cw=(W-pr)/N;
+  x.font='11px system-ui';x.fillStyle=col('--mute');x.strokeStyle=col('--line');x.lineWidth=1;
+  for(let j=0;j<=4;j++){const p=lo+(hi-lo)*j/4,y=Y(p);x.beginPath();x.moveTo(0,y);x.lineTo(W-pr,y);x.stroke();x.fillText(fmt(p),W-pr+6,y+4)}
+  const mark={};a.hs.forEach(h=>{if(h.i>=off)(mark[h.i-off]=mark[h.i-off]||[]).push(h)});
+  v.forEach((c,j)=>{
+    const cx=j*cw+cw/2,up=c.cl>=c.o,color=up?col('--up'):col('--dn');
+    x.strokeStyle=color;x.fillStyle=color;x.beginPath();x.moveTo(cx,Y(c.h));x.lineTo(cx,Y(c.l));x.stroke();
+    const y1=Y(Math.max(c.o,c.cl)),y2=Y(Math.min(c.o,c.cl));x.fillRect(cx-cw*0.34,y1,cw*0.68,Math.max(1,y2-y1));
+    const m=mark[j];
+    if(m){const s=m.reduce((t,h)=>t+h.dir,0),mc=s>0?col('--up'):s<0?col('--dn'):col('--ne');x.fillStyle=mc;x.beginPath();
+      if(s>=0){const y=Y(c.l)+8;x.moveTo(cx,y);x.lineTo(cx-4,y+8);x.lineTo(cx+4,y+8)}else{const y=Y(c.h)-8;x.moveTo(cx,y);x.lineTo(cx-4,y-8);x.lineTo(cx+4,y-8)}x.fill()}
+  });
+  [['s20',20,'#e0a030'],['s50',50,'#5b7cff']].forEach(([_,n,cl])=>{x.strokeStyle=cl;x.lineWidth=1.5;x.beginPath();let st=false;
+    for(let j=0;j<N;j++){const i=off+j;if(i<n-1)continue;const y=Y(sma(k,n,i)),cx=j*cw+cw/2;st?x.lineTo(cx,y):x.moveTo(cx,y);st=true}x.stroke();x.lineWidth=1});
+  x.fillStyle='#e0a030';x.fillText('MA20',8,14);x.fillStyle='#5b7cff';x.fillText('MA50',50,14);
+  geo={cw,off,pr};
+}
+$('cv').addEventListener('mousemove',e=>{
+  if(!geo)return;const j=Math.floor((e.offsetX)/geo.cw),i=geo.off+j,{k,a}=data[tf],c=k[i];
+  if(!c||e.offsetX>$('cv').clientWidth-geo.pr)return;
+  const ms=a.hs.filter(h=>h.i===i).map(h=>h.name).join(', ');
+  $('hint').textContent=`${ftime(c.t)} · Mở ${fmt(c.o)} · Cao ${fmt(c.h)} · Thấp ${fmt(c.l)} · Đóng ${fmt(c.cl)}${ms?' · Mô hình: '+ms:''}`;
+});
+
+/* ---------- Điều khiển ---------- */
+function sync(){document.querySelectorAll('#tfs button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.tf===tf));if(data[tf])render()}
+$('tfs').innerHTML=TFS.map(x=>`<button data-tf="${x}">${LBL[x]}</button>`).join('');
+document.querySelectorAll('#tfs button').forEach(b=>b.onclick=()=>{tf=b.dataset.tf;sync()});
+$('sym').onchange=load;
+$('tv').onclick=()=>{const m={'5m':'5','15m':'15','30m':'30','1h':'60','4h':'240','1d':'D','1w':'W','1M':'M','3M':'3M'};
+  window.open(`https://www.tradingview.com/chart/?symbol=BINANCE:${$('sym').value}&interval=${m[tf]}`,'_blank','noopener')};
+window.addEventListener('resize',()=>data[tf]&&draw());
+/* ---------- Dự báo 1 ngày: mô hình nến + tin tức ---------- */
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const WT={'5m':.4,'15m':.6,'30m':.8,'1h':1,'4h':1.5,'1d':2.5,'1w':1.5,'1M':.8,'3M':.4};
+const POS=['surge','rally','bullish','approv','adopt','inflow','record high','soar','gain','upgrade','partnership','breakout','rebound','jump'];
+const NEG=['crash','plunge','bearish','hack','ban','lawsuit','outflow','sell-off','selloff','dump','liquidat','fraud','sues','decline','drop','fall','slump','warn','probe'];
+const kw=t=>{t=t.toLowerCase();return POS.filter(w=>t.includes(w)).length-NEG.filter(w=>t.includes(w)).length};
+let news=null;
+async function loadNews(){
+  const b=$('sym').value.replace('USDT',''); let items=[],fg=null;
+  try{const j=await (await fetch('https://min-api.cryptocompare.com/data/v2/news/?lang=EN&categories='+b)).json();
+    items=(j.Data||[]).slice(0,15).map(x=>({t:x.title,u:x.url,s:(x.source_info&&x.source_info.name)||x.source,v:Math.sign(kw(x.title))}))}catch(e){}
+  try{fg=+(await (await fetch('https://api.alternative.me/fng/?limit=1')).json()).data[0].value}catch(e){}
+  news={items,fg,score:Math.max(-2,Math.min(2,items.reduce((a,x)=>a+x.v,0)/3))};
+}
+function calcForecast(){
+  let tot=0,ws=0; TFS.forEach(t=>{tot+=Math.max(-6,Math.min(6,data[t].a.score))*WT[t];ws+=WT[t]});
+  let z=tot/ws; if(news){z+=news.score*0.8; if(news.fg!=null) z+=news.fg<25?.5:news.fg>75?-.5:0}
+  const d=data['1d'].k, atr=d.slice(-14).reduce((s,c)=>s+(c.h-c.l)/c.cl,0)/14*100;
+  return {l:z>=0.8?'up':z<=-0.8?'dn':'ne',s:+z.toFixed(2),conf:Math.min(100,Math.round(Math.abs(z)/3*100)),atr:+atr.toFixed(2)};
+}
+async function showForecast(){
+  const b=$('fbox'); b.textContent='Đang tổng hợp dữ liệu…'; b.className='';
+  await loadNews(); const f=calcForecast(), p=data['5m'].k.at(-1).cl, r=f.atr/200, rs=[];
+  ['1h','4h','1d','1w'].forEach(t=>{const n=data[t].k.length-1;
+    data[t].a.hs.filter(h=>h.i>=n-2).forEach(h=>rs.push(`<li><b>${t}</b>: ${h.name} (${h.dir>0?'báo tăng':h.dir<0?'báo giảm':'trung lập'}). ${WHY[h.name]}</li>`))});
+  rs.push(`<li><b>Xu hướng nền</b>: khung 1 ngày ${trTxt(data['1d'].a.tr)}; khung 1 tuần ${trTxt(data['1w'].a.tr)}.</li>`);
+  const nw=news.items.slice(0,5).map(x=>`<li>${x.v>0?'<span class="c-up">Tích cực</span>':x.v<0?'<span class="c-dn">Tiêu cực</span>':'<span class="mute">Trung tính</span>'} – <a href="${/^https?:/.test(x.u)?esc(x.u):'#'}" target="_blank" rel="noopener">${esc(x.t)}</a> <span class="mute">(${esc(x.s||'')})</span></li>`).join('');
+  b.innerHTML=`<div class="verdict ${f.l}"><b class="${cls(f.l)}">${f.l==='up'?'Dự kiến TĂNG':f.l==='dn'?'Dự kiến GIẢM':'Chưa rõ hướng, nghiêng về đi ngang'} trong 24 giờ tới</b>Điểm tổng hợp ${f.s} · độ mạnh ${f.conf}%<div class="bar"><i style="width:${Math.max(f.conf,6)}%"></i></div><small>Biên độ ngày trung bình 14 ngày khoảng ${f.atr}%, tức khoảng ${fmt(p*(1-r))} đến ${fmt(p*(1+r))} quanh giá hiện tại.</small></div>
+  <h3>Vì sao có dự báo này</h3><ul>${rs.join('')}</ul>
+  <h3>Tin tức</h3>${news.items.length?'<ul>'+nw+'</ul>':'<p class="mute">Không tải được tin tức.</p>'}
+  <p>Điểm tin tức ${news.score.toFixed(1)}${news.fg!=null?' · Chỉ số Sợ hãi/Tham lam: '+news.fg:''}</p>
+  <p class="note">Điểm tin tức chấm theo từ khóa trong tiêu đề nên chỉ mang tính tham khảo. Dự báo là xác suất, không phải cam kết.</p>`;
+}
+$('fbtn').onclick=()=>data[tf]&&showForecast();
+
+/* ---------- Mua / bán + Google Sheet ---------- */
+const LS=(k,v)=>{try{if(v===undefined)return JSON.parse(localStorage.getItem(k));localStorage.setItem(k,JSON.stringify(v))}catch(e){return null}};
+let rows=LS('rows')||[], url=LS('url')||'';
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+async function post(r){
+  if(!url) return;
+  try{await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(r)});$('sync').textContent='Đã gửi lên Google Sheet.'}
+  catch(e){$('sync').textContent='Chưa gửi được lên Sheet, dữ liệu đã lưu tạm trên máy. Bấm Lưu và đồng bộ để gửi lại.'}
+}
+function save(r){rows.push(r);LS('rows',rows);post(r);tradeUI()}
+async function pull(){
+  if(!url) return;
+  try{
+    const sr=await (await fetch(url+'?action=list')).json(), ids=new Set(sr.map(x=>x.id)), miss=rows.filter(x=>!ids.has(x.id));
+    for(const m of miss) await post(m);
+    const have=new Set(rows.map(x=>x.id)); sr.forEach(x=>{if(!have.has(x.id))rows.push(x)});
+    LS('rows',rows); $('sync').textContent=`Đã đồng bộ: ${sr.length} dòng trên Sheet${miss.length?', gửi thêm '+miss.length+' dòng từ máy':''}.`; tradeUI();
+  }catch(e){$('sync').textContent='Không đọc được Sheet. Kiểm tra URL Apps Script và quyền truy cập “Bất kỳ ai”.'}
+}
+function snap(){const f={};TFS.forEach(t=>{const a=data[t].a,n=data[t].k.length-1;
+  f[t]={l:a.label,s:+a.score.toFixed(1),p:a.hs.filter(h=>h.i>=n-4).map(h=>({n:h.name,d:h.dir}))}});return JSON.stringify(f)}
+$('bp').oninput=()=>{$('bp').dataset.m=1};
+$('useP').onclick=()=>{delete $('bp').dataset.m;tradeUI()};
+$('buy').onclick=()=>{
+  const price=+$('bp').value,usdt=+$('ba').value; if(!(price>0&&usdt>0)||!data['5m']) return alert('Nhập giá mua và số tiền (USDT) hợp lệ.');
+  save({id:uid(),thoiGian:new Date().toISOString(),coin:$('sym').value,loai:'MUA',gia:price,soTienUSDT:usdt,soLuong:+(usdt/price).toFixed(8),idMua:'',loiLo:'',loiLoPct:'',ketQua:'',duBao1Ngay:calcForecast().l,duBaoTheoKhung:snap()});
+};
+$('pos').onclick=e=>{
+  const id=e.target.dataset&&e.target.dataset.id; if(!id||!e.target.classList.contains('sell')) return;
+  const b=rows.find(x=>x.id===id), cur=data['5m']&&b.coin===$('sym').value?data['5m'].k.at(-1).cl:0;
+  const price=+document.querySelector(`.sp[data-id="${id}"]`).value||cur; if(!(price>0)) return alert('Nhập giá bán.');
+  const q=+b.soLuong, pnl=(price-b.gia)*q;
+  save({id:uid(),thoiGian:new Date().toISOString(),coin:b.coin,loai:'BÁN',gia:price,soTienUSDT:+(price*q).toFixed(2),soLuong:q,idMua:id,loiLo:+pnl.toFixed(2),loiLoPct:+((price/b.gia-1)*100).toFixed(2),ketQua:pnl>0?'THẮNG':'THUA',duBao1Ngay:b.duBao1Ngay,duBaoTheoKhung:b.duBaoTheoKhung});
+};
+$('saveUrl').onclick=()=>{url=$('url').value.trim();LS('url',url);pull()};
+$('url').value=url;
+
+function stats(){
+  const cl=rows.filter(x=>x.loai==='BÁN'), T={}, P={}, D={t:0,ok:0}; let win=0,pnl=0;
+  cl.forEach(x=>{
+    const v=+x.loiLo, sg=Math.sign(v); if(v>0)win++; pnl+=v; let f; try{f=JSON.parse(x.duBaoTheoKhung)}catch(e){return}
+    const chk=(o,l)=>{if(l==='ne'||!l)return;o.t++;if((l==='up'&&sg>0)||(l==='dn'&&sg<0))o.ok++};
+    for(const t in f){T[t]=T[t]||{t:0,ok:0};chk(T[t],f[t].l);f[t].p.forEach(m=>{const o=P[m.n]=P[m.n]||{t:0,ok:0};o.t++;if(m.d*sg>0)o.ok++})}
+    chk(D,x.duBao1Ngay);
+  });
+  return {cl,T,P,D,win,pnl};
+}
+const rate=o=>o.t?Math.round(o.ok/o.t*100)+'%':'–';
+const srt=(O)=>Object.entries(O).sort((a,b)=>b[1].ok/b[1].t-a[1].ok/a[1].t||b[1].ok-a[1].ok);
+function tradeUI(){
+  if(!data['5m']) return;
+  const sym=$('sym').value, cur=data['5m'].k.at(-1).cl;
+  if(!$('bp').dataset.m) $('bp').value=cur;
+  const keep={}; document.querySelectorAll('.sp').forEach(i=>keep[i.dataset.id]=i.value);
+  const sold=new Set(rows.filter(x=>x.loai==='BÁN').map(x=>x.idMua)), open=rows.filter(x=>x.loai==='MUA'&&!sold.has(x.id));
+  $('pos').innerHTML=open.length?`<table><thead><tr><th>Thời gian</th><th>Coin</th><th>Giá mua</th><th>USDT</th><th>Lãi/lỗ tạm tính</th><th>Giá bán</th><th></th></tr></thead><tbody>${open.map(x=>{
+    const u=x.coin===sym?(cur-x.gia)*x.soLuong:null;
+    return `<tr><td>${ftime(x.thoiGian)}</td><td>${x.coin}</td><td>${fmt(+x.gia)}</td><td>${fmt(+x.soTienUSDT)}</td><td class="${u>0?'c-up':'c-dn'}">${u==null?'–':fmt(u)+' USDT'}</td><td><input class="sp" data-id="${x.id}" type="number" step="any" placeholder="${x.coin===sym?cur:'nhập giá'}" value="${keep[x.id]||''}"></td><td><button class="sell" data-id="${x.id}">BÁN</button></td></tr>`}).join('')}</tbody></table>`:'<p class="mute">Chưa có lệnh mua đang mở.</p>';
+  const S=stats();
+  $('hist').innerHTML=S.cl.length?`<table><thead><tr><th>Thời gian</th><th>Coin</th><th>Giá bán</th><th>Lãi/lỗ</th><th>Kết quả</th></tr></thead><tbody>${S.cl.slice(-8).reverse().map(x=>`<tr><td>${ftime(x.thoiGian)}</td><td>${x.coin}</td><td>${fmt(+x.gia)}</td><td class="${+x.loiLo>0?'c-up':'c-dn'}">${fmt(+x.loiLo)} USDT (${x.loiLoPct}%)</td><td>${x.ketQua}</td></tr>`).join('')}</tbody></table>`:'<p class="mute">Chưa có lệnh bán.</p>';
+  const tr=srt(S.T).filter(e=>e[1].t), best=tr[0], pr=srt(S.P);
+  $('st').innerHTML=!S.cl.length?'<p class="mute">Chưa có lệnh nào đã bán. Hãy mua rồi bán để có dữ liệu thống kê.</p>':
+   `<p><b>${S.cl.length}</b> lệnh đã đóng, thắng <b>${S.win}</b> (${Math.round(S.win/S.cl.length*100)}%), tổng lãi/lỗ <b class="${S.pnl>=0?'c-up':'c-dn'}">${fmt(S.pnl)} USDT</b>.</p>
+   ${best?`<p>Khung dự báo đúng nhiều nhất: <b>${best[0]}</b> với <b>${best[1].ok}/${best[1].t}</b> dự báo đúng (${rate(best[1])}).</p>`:''}
+   <div class="scroll"><table><thead><tr><th>Khung dự báo lúc mua</th><th>Số dự báo (tăng/giảm)</th><th>Số dự báo đúng</th><th>Tỷ lệ đúng</th></tr></thead><tbody>
+   ${srt(S.T).map(([t,o])=>`<tr><td><b>${t}</b></td><td>${o.t}</td><td>${o.ok}</td><td>${rate(o)}</td></tr>`).join('')}
+   <tr><td><b>Dự báo 1 ngày (tổng hợp)</b></td><td>${S.D.t}</td><td>${S.D.ok}</td><td>${rate(S.D)}</td></tr></tbody></table></div>
+   ${pr.length?`<h3>Mô hình nến đúng nhiều nhất</h3><div class="scroll"><table><thead><tr><th>Mô hình</th><th>Số lần xuất hiện</th><th>Số lần đúng</th><th>Tỷ lệ đúng</th></tr></thead><tbody>${pr.slice(0,8).map(([n,o])=>`<tr><td>${n}</td><td>${o.t}</td><td>${o.ok}</td><td>${rate(o)}</td></tr>`).join('')}</tbody></table></div>`:''}
+   <p class="note">Cách tính: mỗi lệnh đã bán được xem là “tăng” nếu giá bán cao hơn giá mua, và “giảm” nếu thấp hơn. Dự báo tại thời điểm mua được coi là đúng khi cùng hướng với kết quả đó. Dự báo trung lập không được tính. Số lệnh càng nhiều thì thống kê càng đáng tin.</p>`;
+}
+pull();
+
+sync();load();setInterval(load,30000);
+</script>
+</body>
+</html>
